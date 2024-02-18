@@ -8,13 +8,19 @@ inputs:
     description: 'Choose WARP mode: wireguard or client.'
     required: false
     default: 'client'
+  exclude_v4:
+    description: 'Choose whether to exclude IPv4 traffic from WARP'
+    required: false
+    default: 'false'
 
 runs:
   using: composite
   steps:
     - name: Install WARP
       run: |
-        if [ "${{ inputs.mode }}" == 'client' ]; then
+        MODE="${{ inputs.mode }}"
+        EXCLUDE_V4="${{ inputs.exclude_v4 }}"
+        if [ "${MODE}" == 'client' ]; then
           echo "WARP mode: client warp+doh."
           sudo apt-get -y update
           curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
@@ -23,9 +29,12 @@ runs:
           sudo apt-get install -y cloudflare-warp
           sudo warp-cli --accept-tos register
           sudo warp-cli --accept-tos set-mode warp+doh
+          if [ "${EXCLUDE_V4}" == 'true' ]; then
+            sudo warp-cli --accept-tos add-excluded-route 0.0.0.0/0
+          fi
           sudo warp-cli --accept-tos connect
 
-        elif [ "${{ inputs.mode }}" == 'wireguard' ]; then
+        elif [ "${MODE}" == 'wireguard' ]; then
           echo "WARP mode: wireguard."
           sudo apt-get -y update
           sudo apt-get -y install --no-install-recommends net-tools iproute2 openresolv dnsutils iptables wireguard-tools
@@ -47,7 +56,7 @@ runs:
           sudo wg-quick up warp
 
         else
-          echo -e "WARP mode: ${{ inputs.mode }}.\nYou can choose client or wireguard."
+          echo -e "WARP mode: ${MODE}.\nYou can choose client or wireguard."
           exit 1
         fi
 
